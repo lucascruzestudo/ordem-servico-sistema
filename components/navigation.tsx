@@ -47,8 +47,12 @@ export function Navigation({ onClose }: NavigationProps) {
   useEffect(() => {
     const checkGistConfig = () => {
       const data = storage.getData()
+      // Show the "Salvar Dados" button whenever there is any gist object
+      // configured in settings. This avoids flicker when one of the fields
+      // (gist_id/token) is temporarily empty during editing — the user
+      // expects the menu entry to remain visible if gist settings exist.
       const gistConfig = data.settings?.gist
-      setIsGistConfigured(!!(gistConfig?.gist_id && gistConfig?.token))
+      setIsGistConfigured(!!gistConfig)
     }
 
     checkGistConfig()
@@ -60,8 +64,14 @@ export function Navigation({ onClose }: NavigationProps) {
 
     window.addEventListener("storage", handleStorageChange)
 
+    // Also subscribe to the in-memory storage change notifications so
+    // the menu updates within the same tab when storage is mutated via
+    // the storage service (window 'storage' only fires across tabs).
+    const unsubscribe = storage.onDataChange(checkGistConfig)
+
     return () => {
       window.removeEventListener("storage", handleStorageChange)
+      unsubscribe()
     }
   }, [])
 
