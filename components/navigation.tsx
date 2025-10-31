@@ -2,14 +2,11 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { FileText, Users, Wrench, Building2, Settings, X, Search, Sun, Moon, CloudUpload } from "lucide-react"
+import { FileText, Users, Wrench, Building2, Settings, X, Search, Sun, Moon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/lib/theme-provider"
 import { useState, useMemo, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { storage } from "@/lib/storage"
-import { gistService } from "@/lib/gist-service"
-import { useToast } from "@/lib/toast-provider"
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: FileText },
@@ -29,9 +26,6 @@ export function Navigation({ onClose }: NavigationProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
-  const [isGistConfigured, setIsGistConfigured] = useState(false)
-  const { showToast } = useToast()
 
   const filteredNavItems = useMemo(() => {
     if (!searchQuery.trim()) return navItems
@@ -45,64 +39,10 @@ export function Navigation({ onClose }: NavigationProps) {
   }
 
   useEffect(() => {
-    const checkGistConfig = () => {
-      const data = storage.getData()
-      // Show the "Salvar Dados" button whenever there is any gist object
-      // configured in settings. This avoids flicker when one of the fields
-      // (gist_id/token) is temporarily empty during editing — the user
-      // expects the menu entry to remain visible if gist settings exist.
-      const gistConfig = data.settings?.gist
-      setIsGistConfigured(!!gistConfig)
-    }
-
-    checkGistConfig()
-
-    // Listen to storage events to update when Gist is configured
-    const handleStorageChange = () => {
-      checkGistConfig()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Also subscribe to the in-memory storage change notifications so
-    // the menu updates within the same tab when storage is mutated via
-    // the storage service (window 'storage' only fires across tabs).
-    const unsubscribe = storage.onDataChange(checkGistConfig)
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-      unsubscribe()
-    }
+    // currently only used for search debounce/logic; no side-effects needed
   }, [])
 
-  const handleSaveToGist = async () => {
-    try {
-      setIsSaving(true)
-
-      const data = storage.getData()
-      const gistConfig = data.settings?.gist
-
-      if (!gistConfig || !gistConfig.gist_id || !gistConfig.token) {
-        showToast("Configure o GitHub Gist nas configurações primeiro", "error")
-        setIsSaving(false)
-        router.push("/configuracoes")
-        if (onClose) onClose()
-        return
-      }
-
-      const result = await gistService.pushToGist(gistConfig)
-
-      if (result.success) {
-        showToast(result.message, "success")
-      } else {
-        showToast(result.message, "error")
-      }
-    } catch (error) {
-      showToast("Erro ao salvar no GitHub Gist", "error")
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  // Gist save removed from sidebar per request
 
   return (
     <div className="flex flex-col h-full">
@@ -161,19 +101,7 @@ export function Navigation({ onClose }: NavigationProps) {
           {theme === "light" ? "Modo Escuro" : "Modo Claro"}
         </button>
 
-        {isGistConfigured && (
-          <button
-            onClick={handleSaveToGist}
-            disabled={isSaving}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              isSaving && "opacity-50 cursor-not-allowed",
-            )}
-          >
-            <CloudUpload className={cn("h-4 w-4", isSaving && "animate-pulse")} />
-            {isSaving ? "Salvando..." : "Salvar Dados"}
-          </button>
-        )}
+        {/* 'Salvar Dados' menu entry removed */}
       </nav>
     </div>
   )

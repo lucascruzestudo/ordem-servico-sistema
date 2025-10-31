@@ -2,9 +2,12 @@
 
 import type React from "react"
 import { Navigation } from "@/components/navigation"
-import { Menu } from "lucide-react"
-import { useState } from "react"
+import { Menu, Save } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
+import { storage } from "@/lib/storage"
+import { gistService } from "@/lib/gist-service"
+import { Button } from "@/components/ui/button"
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -22,6 +25,55 @@ export function AppShell({
 
   if (isPrintPage) {
     return <main className="min-h-screen">{children}</main>
+  }
+
+  // Estado para saber se há alterações não salvas
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [showSave, setShowSave] = useState(false)
+  const lastSavedRef = useRef<string | null>(null)
+
+  // Verifica se há configuração de gist salva
+  function hasGistConfig() {
+    const data = storage.getData()
+    return !!(data.settings && data.settings.gist && data.settings.gist.gist_id && data.settings.gist.token && data.settings.gist.filename)
+  }
+
+  // Atualiza estado dirty ao mudar storage
+  useEffect(() => {
+    // Salva o snapshot inicial
+    lastSavedRef.current = JSON.stringify(storage.getData())
+    setDirty(false)
+    setShowSave(hasGistConfig())
+    // Subscreve mudanças
+    const unsub = storage.onDataChange(() => {
+      setShowSave(hasGistConfig())
+      // Se não há gist config, não marca dirty
+      if (!hasGistConfig()) {
+        setDirty(false)
+        return
+      }
+      // Compara snapshot salvo com atual
+      const current = JSON.stringify(storage.getData())
+      setDirty(current !== lastSavedRef.current)
+    })
+    return () => unsub()
+  }, [])
+
+  // Função para salvar no gist
+  async function handleSaveGist() {
+    setSaving(true)
+    const data = storage.getData()
+    const config = data.settings.gist
+    if (!config) return
+    const result = await gistService.pushToGist(config)
+    if (result.success) {
+      lastSavedRef.current = JSON.stringify(storage.getData())
+      setDirty(false)
+    } else {
+      alert(result.message)
+    }
+    setSaving(false)
   }
 
   return (
@@ -44,9 +96,15 @@ export function AppShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="p-6 border-b">
+        <div className="p-6 border-b flex items-center gap-2">
           <h1 className="text-xl font-bold">Sistema OS</h1>
-          <p className="text-sm text-muted-foreground">Ordens de Serviço</p>
+          <p className="text-sm text-muted-foreground ml-2">Ordens de Serviço</p>
+          {showSave && dirty && (
+            <Button size="sm" variant="outline" onClick={handleSaveGist} disabled={saving} title="Salvar no Gist">
+              <Save className="w-4 h-4" />
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          )}
         </div>
         <Navigation onClose={() => setSidebarOpen(false)} />
       </aside>
