@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 import { Navigation } from "@/components/navigation"
 import { Menu, Save } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
@@ -97,12 +97,13 @@ export function AppShell({
         )}
       >
         <div className="p-6 border-b flex items-center gap-2">
-          <h1 className="text-xl font-bold">Sistema OS</h1>
-          <p className="text-sm text-muted-foreground ml-2">Ordens de Serviço</p>
+          <h1 className="text-xl font-bold flex-1">Sistema OS</h1>
           {showSave && dirty && (
-            <Button size="sm" variant="outline" onClick={handleSaveGist} disabled={saving} title="Salvar no Gist">
-              <Save className="w-4 h-4" />
-              {saving ? "Salvando..." : "Salvar"}
+            <Button size="icon" variant="outline" onClick={async () => {
+              await handleSaveGist();
+              if (!saving) alert("Dados salvos no Gist com sucesso!");
+            }} disabled={saving} title="Salvar no Gist">
+              <Save className="w-5 h-5" />
             </Button>
           )}
         </div>
