@@ -14,6 +14,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
+
 export function AppShell({
   children,
 }: {
@@ -21,18 +22,13 @@ export function AppShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-
-  const isPrintPage = pathname?.includes("/imprimir")
-
-  if (isPrintPage) {
-    return <main className="min-h-screen">{children}</main>
-  }
-
   // Estado para saber se há alterações não salvas
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showSave, setShowSave] = useState(false)
   const lastSavedRef = useRef<string | null>(null)
+  // Toast do sistema
+  const { showToast } = useToast();
 
   // Verifica se há configuração de gist salva
   function hasGistConfig() {
@@ -61,9 +57,6 @@ export function AppShell({
     return () => unsub()
   }, [])
 
-  // Toast do sistema
-  const { showToast } = useToast();
-
   // Função para salvar no gist
   async function handleSaveGist() {
     setSaving(true)
@@ -79,6 +72,11 @@ export function AppShell({
       showToast(result.message, "error")
     }
     setSaving(false)
+  }
+
+  const isPrintPage = pathname?.includes("/imprimir")
+  if (isPrintPage) {
+    return <main className="min-h-screen">{children}</main>
   }
 
   return (
