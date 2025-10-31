@@ -50,35 +50,45 @@ export default function EditarOrdemPage() {
   useEffect(() => {
     if (!initialized) return
 
+    // Load clientes and equipamentos first
     const clientesRes = listClientes()
     const equipamentosRes = listEquipamentos()
 
-    if (clientesRes.data) setClientes(clientesRes.data)
-    if (equipamentosRes.data) setEquipamentos(equipamentosRes.data)
+    const clientesData = clientesRes.data || []
+    const equipamentosData = equipamentosRes.data || []
 
-    // Load ordem data
+    setClientes(clientesData)
+    setEquipamentos(equipamentosData)
+
+    // Load ordem data and apply to form AFTER equipamentos are set so
+    // the Select items are registered when the controlled value is applied.
     const ordemRes = getOrdem(params.id as string)
     if (ordemRes.data) {
       const ordem = ordemRes.data
-      setFormData({
-        tipo_ordem: ordem.tipo_ordem,
-        data_os: ordem.data_os.split("T")[0],
-        data_chamado: ordem.data_chamado.split("T")[0],
-        motivo_chamado: ordem.motivo_chamado,
-        constatado: ordem.constatado,
-        serv_executado: ordem.serv_executado,
-        status_servico: ordem.status_servico,
-        observacao: ordem.observacao,
-        tipo_material: ordem.tipo_material,
-        material: ordem.material,
-        valor_visita: ordem.valor_visita,
-        mao_de_obra: ordem.mao_de_obra,
-        valor_material: ordem.valor_material,
-        unit_km: ordem.unit_km,
-        km_inicial: ordem.km_inicial,
-        km_final: ordem.km_final,
-        cliente_id: ordem.cliente_id,
-        equipamento_id: ordem.equipamento_id,
+
+      // Use a microtask to ensure React has processed setEquipamentos/setClientes
+      // so Radix SelectItem registrations happen before we set the controlled value.
+      Promise.resolve().then(() => {
+        setFormData({
+          tipo_ordem: ordem.tipo_ordem,
+          data_os: ordem.data_os.split("T")[0],
+          data_chamado: ordem.data_chamado.split("T")[0],
+          motivo_chamado: ordem.motivo_chamado,
+          constatado: ordem.constatado,
+          serv_executado: ordem.serv_executado,
+          status_servico: ordem.status_servico,
+          observacao: ordem.observacao,
+          tipo_material: ordem.tipo_material,
+          material: ordem.material,
+          valor_visita: ordem.valor_visita,
+          mao_de_obra: ordem.mao_de_obra,
+          valor_material: ordem.valor_material,
+          unit_km: ordem.unit_km,
+          km_inicial: ordem.km_inicial,
+          km_final: ordem.km_final,
+          cliente_id: ordem.cliente_id,
+          equipamento_id: ordem.equipamento_id,
+        })
       })
     }
   }, [initialized, params.id])
