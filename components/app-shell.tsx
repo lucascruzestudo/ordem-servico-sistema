@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { storage } from "@/lib/storage"
 import { gistService } from "@/lib/gist-service"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/lib/toast-provider"
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -60,6 +61,9 @@ export function AppShell({
     return () => unsub()
   }, [])
 
+  // Toast do sistema
+  const { showToast } = useToast();
+
   // Função para salvar no gist
   async function handleSaveGist() {
     setSaving(true)
@@ -70,8 +74,9 @@ export function AppShell({
     if (result.success) {
       lastSavedRef.current = JSON.stringify(storage.getData())
       setDirty(false)
+      showToast("Dados salvos no Gist com sucesso!", "success")
     } else {
-      alert(result.message)
+      showToast(result.message, "error")
     }
     setSaving(false)
   }
@@ -99,10 +104,7 @@ export function AppShell({
         <div className="p-6 border-b flex items-center gap-2">
           <h1 className="text-xl font-bold flex-1">Sistema OS</h1>
           {showSave && dirty && (
-            <Button size="icon" variant="outline" onClick={async () => {
-              await handleSaveGist();
-              if (!saving) alert("Dados salvos no Gist com sucesso!");
-            }} disabled={saving} title="Salvar no Gist">
+            <Button size="icon" variant="outline" onClick={handleSaveGist} disabled={saving} title="Salvar no Gist">
               <Save className="w-5 h-5" />
             </Button>
           )}
