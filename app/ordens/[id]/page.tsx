@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getOrdem, deleteOrdem } from "@/lib/api/ordens-servico"
+import { getOrdem, deleteOrdem, updateOrdem } from "@/lib/api/ordens-servico"
+import { getEmpresa } from "@/lib/api/empresa"
 import { getCliente } from "@/lib/api/clientes"
 import { getEquipamento } from "@/lib/api/equipamentos"
 import type { OrdemServico, Cliente, Equipamento, StatusServico } from "@/lib/types"
@@ -26,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/lib/toast-provider"
+import SignaturePad from "@/components/signature-pad"
 
 const statusColors: Record<StatusServico, string> = {
   Aberto: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
@@ -42,6 +44,24 @@ export default function OrdemDetailPage() {
   const [ordem, setOrdem] = useState<OrdemServico | null>(null)
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [equipamento, setEquipamento] = useState<Equipamento | null>(null)
+  const [empresa, setEmpresa] = useState<any | null>(null)
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
+  const [editingSignature, setEditingSignature] = useState<"tecnico" | "cliente" | null>(null)
+  
+  const handleRemoveSignature = (which: "tecnico" | "cliente") => {
+    if (!ordem) return
+    const updates: any = {}
+    if (which === "tecnico") updates.assinatura_tecnico = undefined
+    if (which === "cliente") updates.assinatura_cliente = undefined
+
+    const result = updateOrdem(ordem.id, updates)
+    if (result.data) {
+      setOrdem(result.data)
+      showToast("Assinatura removida", "success")
+    } else {
+      showToast(result.erro || "Erro ao remover assinatura", "error")
+    }
+  }
 
   useEffect(() => {
     if (!initialized) return
@@ -59,6 +79,9 @@ export default function OrdemDetailPage() {
       const equipRes = getEquipamento(ordemRes.data.equipamento_id)
       if (equipRes.data) setEquipamento(equipRes.data)
     }
+
+    const empresaRes = getEmpresa()
+    if (empresaRes.data) setEmpresa(empresaRes.data)
   }
 
   const handleDelete = () => {
@@ -325,6 +348,118 @@ export default function OrdemDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Signatures - clickable on detail page */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Assinaturas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-8">
+            <div className="text-center">
+              <div>
+                <div className="border border-dashed rounded p-4 min-h-[120px] flex items-center justify-center">
+                  {ordem.assinatura_tecnico ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ordem.assinatura_tecnico} alt="Assinatura do técnico" className="max-h-28 object-contain" />
+                  ) : empresa?.assinatura_tecnico_padrao ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={empresa.assinatura_tecnico_padrao} alt="Assinatura padrão do técnico" className="max-h-28 object-contain" />
+                  ) : (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Sem assinatura padrão</p>
+                      <p className="text-xs text-gray-500">Configure em Dados da Empresa</p>
+                    </div>
+                  )}
+                </div>
+
+                {ordem.assinatura_tecnico && (
+                  <div className="mt-2 flex justify-center">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemoveSignature("tecnico")
+                      }}
+                    >
+                      Remover assinatura
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="text-center">
+              <div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setEditingSignature("cliente")
+                    setShowSignaturePad(true)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setEditingSignature("cliente")
+                      setShowSignaturePad(true)
+                    }
+                  }}
+                  className="border border-dashed rounded p-4 min-h-[120px] flex items-center justify-center cursor-pointer"
+                >
+                  {ordem.assinatura_cliente ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ordem.assinatura_cliente} alt="Assinatura do cliente" className="max-h-28 object-contain" />
+                  ) : (
+                    <div>
+                      <p className="text-sm font-semibold">Clique para assinar</p>
+                      <p className="text-xs text-gray-500">Cliente</p>
+                    </div>
+                  )}
+                </div>
+
+                {ordem.assinatura_cliente && (
+                  <div className="mt-2 flex justify-center">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemoveSignature("cliente")
+                      }}
+                    >
+                      Remover assinatura
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {showSignaturePad && editingSignature === "cliente" && (
+        <SignaturePad
+          title="Assinatura do Cliente"
+          initialData={ordem.assinatura_cliente || null}
+          onCancel={() => {
+            setShowSignaturePad(false)
+            setEditingSignature(null)
+          }}
+          onSave={(dataUrl) => {
+            const result = updateOrdem(ordem.id, { assinatura_cliente: dataUrl })
+            if (result.data) {
+              setOrdem(result.data)
+              showToast("Assinatura salva com sucesso", "success")
+            } else {
+              showToast(result.erro || "Erro ao salvar assinatura", "error")
+            }
+
+            setShowSignaturePad(false)
+            setEditingSignature(null)
+          }}
+        />
+      )}
     </div>
   )
 }

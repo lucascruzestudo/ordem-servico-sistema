@@ -31,6 +31,9 @@ export interface OrdemServico {
   equipamento_id: string
   attachments: string[] // Array of attachment IDs
   audit_log: string[] // Array of audit log IDs
+  // Optional base64-encoded signature images (data URLs)
+  assinatura_tecnico?: string
+  assinatura_cliente?: string
 }
 
 export interface Equipamento {
@@ -74,6 +77,8 @@ export interface Empresa {
   email: string
   site: string
   politicas_garantia: string
+  // Optional default technician signature (data URL)
+  assinatura_tecnico_padrao?: string
 }
 
 export interface Anexo {

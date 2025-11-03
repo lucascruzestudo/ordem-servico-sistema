@@ -69,6 +69,7 @@ class StorageService {
       site: "www.techservice.com.br",
       politicas_garantia:
         "Garantia de 90 dias para serviços executados e peças substituídas. A garantia não cobre danos causados por mau uso, quedas ou instalação inadequada.",
+      assinatura_tecnico_padrao: "",
     }
 
     // Seed clients

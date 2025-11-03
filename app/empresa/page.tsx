@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import SignaturePad from "@/components/signature-pad"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useStorage } from "@/lib/hooks/use-storage"
 import { useToast } from "@/lib/toast-provider"
@@ -25,7 +26,9 @@ export default function EmpresaPage() {
     email: "",
     site: "",
     politicas_garantia: "",
+    assinatura_tecnico_padrao: "",
   })
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
 
   useEffect(() => {
     if (!initialized) return
@@ -186,6 +189,49 @@ export default function EmpresaPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Assinatura Padrão do Técnico</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {formData.assinatura_tecnico_padrao ? (
+                <div className="flex flex-col items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={formData.assinatura_tecnico_padrao} alt="Assinatura padrão" className="max-h-28 object-contain" />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowSignaturePad(true)}
+                    >
+                      Editar assinatura
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        const updated = { ...formData, assinatura_tecnico_padrao: "" }
+                        const res = updateEmpresa(updated)
+                        if (res.data) {
+                          setFormData(res.data)
+                          showToast("Assinatura padrão removida", "success")
+                        } else {
+                          showToast(res.erro || "Erro ao remover assinatura", "error")
+                        }
+                      }}
+                    >
+                      Remover assinatura
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <p className="text-sm text-muted-foreground">Nenhuma assinatura cadastrada</p>
+                  <Button onClick={() => setShowSignaturePad(true)}>Cadastrar assinatura</Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Políticas de Garantia</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -213,6 +259,25 @@ export default function EmpresaPage() {
           </Button>
         </div>
       </form>
+
+      {showSignaturePad && (
+        <SignaturePad
+          title="Assinatura padrão do Técnico"
+          initialData={formData.assinatura_tecnico_padrao || null}
+          onCancel={() => setShowSignaturePad(false)}
+          onSave={(dataUrl) => {
+            const updated = { ...formData, assinatura_tecnico_padrao: dataUrl }
+            const res = updateEmpresa(updated)
+            if (res.data) {
+              setFormData(res.data)
+              showToast("Assinatura padrão salva", "success")
+            } else {
+              showToast(res.erro || "Erro ao salvar assinatura", "error")
+            }
+            setShowSignaturePad(false)
+          }}
+        />
+      )}
     </div>
   )
 }

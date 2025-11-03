@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { getOrdem } from "@/lib/api/ordens-servico"
+import { getOrdem, updateOrdem } from "@/lib/api/ordens-servico"
 import { getCliente } from "@/lib/api/clientes"
 import { getEquipamento } from "@/lib/api/equipamentos"
 import { getEmpresa } from "@/lib/api/empresa"
 import type { OrdemServico, Cliente, Equipamento, Empresa } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Printer } from "lucide-react"
+import SignaturePad from "@/components/signature-pad"
+import { useToast } from "@/lib/toast-provider"
 import Link from "next/link"
 import { useStorage } from "@/lib/hooks/use-storage"
 import { format } from "date-fns"
@@ -21,6 +23,9 @@ export default function ImprimirOrdemPage() {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [equipamento, setEquipamento] = useState<Equipamento | null>(null)
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
+  const [editingSignature, setEditingSignature] = useState<"tecnico" | "cliente" | null>(null)
+  const { showToast } = useToast()
 
   useEffect(() => {
     if (!initialized) return
@@ -37,6 +42,11 @@ export default function ImprimirOrdemPage() {
 
       const equipRes = getEquipamento(ordemRes.data.equipamento_id)
       if (equipRes.data) setEquipamento(equipRes.data)
+
+      // Exibe toast se não houver assinatura do cliente
+      if (!ordemRes.data.assinatura_cliente) {
+        showToast("O cliente precisa assinar o documento para liberar a impressão.", "warning")
+      }
     }
 
     const empresaRes = getEmpresa()
@@ -60,6 +70,8 @@ export default function ImprimirOrdemPage() {
   const valorKm = kmRodados * ordem.unit_km
   const totalGeral = valorTotal + valorKm
 
+  const hasClienteSignature = !!ordem.assinatura_cliente
+
   return (
     <>
       {/* Print Controls - Hidden when printing */}
@@ -70,7 +82,21 @@ export default function ImprimirOrdemPage() {
             Voltar
           </Button>
         </Link>
-        <Button onClick={handlePrint} size="sm">
+        <Button
+          onClick={handlePrint}
+          size="sm"
+          disabled={!hasClienteSignature}
+          title={
+            !hasClienteSignature 
+              ? "Assinatura do cliente é obrigatória para imprimir." 
+              : undefined
+          }
+          className={
+            !hasClienteSignature 
+              ? "cursor-not-allowed opacity-50" 
+              : ""
+          }
+        >
           <Printer className="h-4 w-4 mr-2" />
           Imprimir
         </Button>
@@ -246,16 +272,106 @@ export default function ImprimirOrdemPage() {
         {/* Signatures */}
         <div className="mt-12 pt-6 border-t-2 border-gray-300">
           <div className="grid grid-cols-2 gap-8">
+            {/* Técnico column */}
             <div className="text-center">
-              <div className="border-t border-black pt-2 mt-16">
-                <p className="text-sm font-semibold">Técnico Responsável</p>
-                <p className="text-xs text-gray-600">Assinatura e Carimbo</p>
+              <div className="pt-2 mt-8 flex flex-col items-center">
+                <div className="min-h-[80px] flex items-center justify-center w-full">
+                  {ordem.assinatura_tecnico ? (
+                    <img src={ordem.assinatura_tecnico} alt="Assinatura técnico" className="max-h-28 object-contain" />
+                  ) : empresa?.assinatura_tecnico_padrao ? (
+                    <img src={empresa.assinatura_tecnico_padrao} alt="Assinatura padrão técnico" className="max-h-28 object-contain" />
+                  ) : (
+                    <div className="w-full">
+                      <p className="text-sm font-semibold">&nbsp;</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full border-t border-black mt-2 pt-2 text-center">
+                  <p className="text-sm font-semibold">Técnico Responsável</p>
+                  <p className="text-xs text-gray-600">Assinatura e Carimbo</p>
+                </div>
+
+                {ordem.assinatura_tecnico && (
+                  <div className="no-print mt-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const result = updateOrdem(ordem.id, { assinatura_tecnico: undefined })
+                        if (result.data) {
+                          setOrdem(result.data)
+                          showToast("Assinatura do técnico removida.", "success")
+                        } else {
+                          showToast(result.erro || "Erro ao remover assinatura", "error")
+                        }
+                      }}
+                    >
+                      Remover assinatura
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Cliente column */}
             <div className="text-center">
-              <div className="border-t border-black pt-2 mt-16">
-                <p className="text-sm font-semibold">Cliente</p>
-                <p className="text-xs text-gray-600">Assinatura e Data</p>
+              <div className="pt-2 mt-8 flex flex-col items-center">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setEditingSignature("cliente")
+                    setShowSignaturePad(true)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setEditingSignature("cliente")
+                      setShowSignaturePad(true)
+                    }
+                  }}
+                  className={`min-h-[80px] flex items-center justify-center w-full cursor-pointer transition-all ${
+                    !ordem.assinatura_cliente 
+                      ? "border-2 border-dashed border-gray-400 hover:border-blue-400 bg-gray-50" 
+                      : ""
+                  }`}
+                >
+                  {ordem.assinatura_cliente ? (
+                    <img src={ordem.assinatura_cliente} alt="Assinatura cliente" className="max-h-28 object-contain" />
+                  ) : (
+                    <div className="w-full">
+                      <p className="text-sm font-semibold text-gray-600">Clique para assinar</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full border-t border-black mt-2 pt-2 text-center">
+                  <p className="text-sm font-semibold">Cliente</p>
+                  <p className="text-xs text-gray-600">Assinatura e Data</p>
+                </div>
+
+                {ordem.assinatura_cliente && (
+                  <div className="no-print mt-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const result = updateOrdem(ordem.id, { assinatura_cliente: undefined })
+                        if (result.data) {
+                          setOrdem(result.data)
+                          showToast("Assinatura do cliente removida.", "success")
+                          showToast("O cliente precisa assinar o documento para liberar a impressão.", "warning")
+                        } else {
+                          showToast(result.erro || "Erro ao remover assinatura.", "error")
+                        }
+                      }}
+                    >
+                      Remover assinatura
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -270,6 +386,29 @@ export default function ImprimirOrdemPage() {
           <p className="mt-2">Status: {ordem.status_servico}</p>
         </div>
       </div>
+
+      {showSignaturePad && editingSignature === "cliente" && (
+        <SignaturePad
+          title="Assinatura do Cliente"
+          initialData={ordem.assinatura_cliente || null}
+          onCancel={() => {
+            setShowSignaturePad(false)
+            setEditingSignature(null)
+          }}
+          onSave={(dataUrl) => {
+            const result = updateOrdem(ordem.id, { assinatura_cliente: dataUrl })
+            if (result.data) {
+              setOrdem(result.data)
+              showToast("Assinatura salva com sucesso.", "success")
+            } else {
+              showToast(result.erro || "Erro ao salvar assinatura.", "error")
+            }
+
+            setShowSignaturePad(false)
+            setEditingSignature(null)
+          }}
+        />
+      )}
 
       {/* Print Styles */}
       <style jsx global>{`
